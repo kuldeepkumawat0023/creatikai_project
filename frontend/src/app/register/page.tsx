@@ -224,8 +224,8 @@ function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name || !email || !password || !number || !address || !Image) {
-      swal('Error', 'Please fill all fields and select an image', 'error');
+    if (!name || !email || !number || !address) {
+      swal('Error', 'Please fill all required fields (Name, Email, Phone, Address)', 'error');
       return;
     }
 
@@ -236,31 +236,36 @@ function RegisterPage() {
       const formData = new FormData();
       formData.append('name', name);
       formData.append('email', email);
-      formData.append('password', password);
+      if (password) {
+        formData.append('password', password); // 👈 optional
+      }
       formData.append('number', number);
       formData.append('address', address);
-      formData.append('Image', Image); // 👈 must match backend field name
+      if (Image) {
+        formData.append('Image', Image); // 👈 optional
+      }
 
       // ✅ Send request to backend
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/signup`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+      const res = await fetch(`${apiUrl}/signup`, {
         method: 'POST',
         body: formData,
         credentials: 'include', // 🔥 allows cookies to be saved
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
 
-      if (data.success) {
+      if (res.ok && data?.success) {
         // ✅ Save token and admin data in localStorage
         localStorage.setItem('adminToken', data.token);
-        localStorage.setItem('adminData', JSON.stringify(data.data));
+        localStorage.setItem('adminData', JSON.stringify(data.admin || data.data));
 
-        // ✅ Success alert + redirect to home
+        // ✅ Success alert + redirect to login
         swal('Success', 'Admin registered successfully', 'success').then(() => {
-          router.push('/login'); // 👈 Redirect to home page
+          router.push('/login'); // 👈 Redirect to login page
         });
       } else {
-        swal('Error', data.message || 'Registration failed', 'error');
+        swal('Error', data?.message || 'Registration failed. Please check backend connection.', 'error');
       }
     } catch (error: any) {
       swal('Error', error.message || 'Something went wrong', 'error');
@@ -286,8 +291,7 @@ function RegisterPage() {
                   <input
                     id="Image"
                     type="file"
-                    accept="Image/*"
-                    required
+                    accept="image/*"
                     onChange={handleImageChange}
                     className="text-gray-300 w-full"
                   />
@@ -363,7 +367,6 @@ function RegisterPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required
                   className="peer text-gray-300 text-[18px] outline-none w-full bg-transparent border-b border-gray-500 
                     focus:border-gray-300 transition-all duration-300 placeholder-transparent pb-3"
                   placeholder="Password"

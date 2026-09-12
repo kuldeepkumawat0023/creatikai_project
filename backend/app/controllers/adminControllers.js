@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Admin from "../module/admin.js";
 import cloudinary from "../config/cloudianry.js";
 import { genrateToken } from "../config/admin-jwt.js";
@@ -7,7 +8,7 @@ import jwt from "jsonwebtoken";
 // ✅ Get all admins
 export const getAdmins = async (req, res) => {
   try {
-    const admins = await Admin.find();
+    const admins = await Admin.find().select("-password");
     res.status(200).json(admins);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -17,8 +18,14 @@ export const getAdmins = async (req, res) => {
 // ✅ Get admin by ID
 export const getAdminById = async (req, res) => {
   const { id } = req.params;
+  const cleanId = id?.startsWith(":") ? id.slice(1) : id;
+
+  if (!mongoose.Types.ObjectId.isValid(cleanId)) {
+    return res.status(400).json({ message: "Invalid Admin ID format" });
+  }
+
   try {
-    const admin = await Admin.findById(id);
+    const admin = await Admin.findById(cleanId).select("-password");
     if (!admin) return res.status(404).json({ message: "Admin not found" });
     res.status(200).json(admin);
   } catch (error) {
@@ -33,13 +40,13 @@ export const getAdminById = async (req, res) => {
 // ===========================
 export const adminSignup = async (req, res) => {
   try {
-    const { name, email, password, number, address } = req.body;
+    const { name, email, password, number, address } = req.body || {};
 
-    // 1️⃣ Validate input
-    if (!name || !email || !password || !number || !address) {
+    // 1️⃣ Validate input (Image and Password are optional)
+    if (!name || !email || !number || !address) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required",
+        message: "Name, email, number, and address are required",
       });
     }
 
@@ -52,17 +59,38 @@ export const adminSignup = async (req, res) => {
       });
     }
 
-    // 3️⃣ Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // 3️⃣ Hash password if provided (optional)
+    let hashedPassword = "";
+    if (password && typeof password === "string" && password.trim() !== "") {
+      hashedPassword = await bcrypt.hash(password, 10);
+    }
 
     // 4️⃣ Handle Cloudinary image upload (optional)
-    let Image = "";
+    let Image = req.body.Image || "";
     if (req.file) {
-      const upload = await cloudinary.uploader.upload(req.file.path, {
-        folder: "Admin/project_images",
-        transformation: [{ width: 1000, crop: "limit" }],
-      });
-      Image = upload.secure_url;
+      try {
+        const upload = await cloudinary.uploader.upload(req.file.path, {
+          folder: "Admin/project_images",
+          transformation: [{ width: 1000, crop: "limit" }],
+        });
+        Image = upload.secure_url;
+      } catch (uploadErr) {
+        console.error("Cloudinary upload failed:", uploadErr.message);
+      } finally {
+        if (req.file.path && fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+      }
+    } else if (Image && Image.startsWith("data:image")) {
+      try {
+        const upload = await cloudinary.uploader.upload(Image, {
+          folder: "Admin/project_images",
+          transformation: [{ width: 1000, crop: "limit" }],
+        });
+        Image = upload.secure_url;
+      } catch (uploadErr) {
+        console.error("Cloudinary upload failed:", uploadErr.message);
+      }
     }
 
     // 5️⃣ Create admin
@@ -111,7 +139,7 @@ export const adminSignup = async (req, res) => {
 // ===========================
 export const adminLogin = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body || {};
 
     // 1️⃣ Validate input
     if (!email || !password) {
@@ -245,51 +273,74 @@ export const adminLogout = async (req, res) => {
 
 export const updateAdmin = async (req, res) => {
   try {
-    const { name, email, password, number, address, Image } = req.body;
-    const adminId = req.user._id; // from protectRoute
-    let updatedAdmin;
+    const { name, email, password, number, address, Image } = req.body || {};
+    const rawId = req.params.id || req.user?._id || req.admin?._id;
+    const adminId = (typeof rawId === "string" && rawId.startsWith(":")) ? rawId.slice(1) : rawId;
 
-    // 1️⃣ Hash password if provided
+    if (!adminId || !mongoose.Types.ObjectId.isValid(adminId)) {
+      return res.status(400).json({ success: false, message: "Invalid or missing Admin ID" });
+    }
+
+    // Validate required fields: name, email, number, address
+    if (!name || !email || !number || !address) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, email, number, and address are required",
+      });
+    }
+
+    // 1️⃣ Hash password if provided (optional)
     let hashedPassword;
-    if (password && password.trim() !== "") {
+    if (password && typeof password === "string" && password.trim() !== "") {
       const salt = await bcrypt.genSalt(10);
       hashedPassword = await bcrypt.hash(password, salt);
     }
 
-    // 2️⃣ If no image is provided → update text fields only
-    if (!Image) {
-      updatedAdmin = await Admin.findByIdAndUpdate(
-        adminId,
-        {
-          name,
-          email,
-          number,
-          address,
-          ...(hashedPassword && { password: hashedPassword }), // only update if provided
-        },
-        { new: true }
-      );
+    // 2️⃣ Handle optional image upload (file or base64/url)
+    let imageUrl = Image;
+    if (req.file) {
+      try {
+        const upload = await cloudinary.uploader.upload(req.file.path, {
+          folder: "Admin/project_images",
+          transformation: [{ width: 1000, crop: "limit" }],
+        });
+        imageUrl = upload.secure_url;
+      } catch (uploadErr) {
+        console.error("Cloudinary upload failed:", uploadErr.message);
+      } finally {
+        if (req.file.path && fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+      }
+    } else if (imageUrl && typeof imageUrl === "string" && imageUrl.startsWith("data:image")) {
+      try {
+        const upload = await cloudinary.uploader.upload(imageUrl, {
+          folder: "Admin/project_images",
+          transformation: [{ width: 1000, crop: "limit" }],
+        });
+        imageUrl = upload.secure_url;
+      } catch (uploadErr) {
+        console.error("Cloudinary upload failed:", uploadErr.message);
+      }
     }
 
-    // 3️⃣ If new image provided → upload to Cloudinary and update
-    else {
-      const upload = await cloudinary.uploader.upload(Image, {
-        folder: "Admin/project_images",
-        transformation: [{ width: 1000, crop: "limit" }],
-      });
+    // 3️⃣ Prepare update fields
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (email) updateData.email = email;
+    if (number) updateData.number = number;
+    if (address !== undefined) updateData.address = address;
+    if (hashedPassword) updateData.password = hashedPassword;
+    if (imageUrl !== undefined) updateData.Image = imageUrl;
 
-      updatedAdmin = await Admin.findByIdAndUpdate(
-        adminId,
-        {
-          name,
-          email,
-          number,
-          address,
-          Image: upload.secure_url,
-          ...(hashedPassword && { password: hashedPassword }),
-        },
-        { new: true }
-      );
+    const updatedAdmin = await Admin.findByIdAndUpdate(
+      adminId,
+      updateData,
+      { new: true }
+    );
+
+    if (!updatedAdmin) {
+      return res.status(404).json({ success: false, message: "Admin not found" });
     }
 
     // 4️⃣ Remove password from response
@@ -299,7 +350,7 @@ export const updateAdmin = async (req, res) => {
     res.json({ success: true, admin: adminToReturn });
   } catch (error) {
     console.log("❌ Error updating admin:", error.message);
-    res.json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -307,8 +358,14 @@ export const updateAdmin = async (req, res) => {
 // ✅ Delete admin
 export const deleteAdmin = async (req, res) => {
   const { id } = req.params;
+  const cleanId = id?.startsWith(":") ? id.slice(1) : id;
+
+  if (!mongoose.Types.ObjectId.isValid(cleanId)) {
+    return res.status(400).json({ message: "Invalid Admin ID format" });
+  }
+
   try {
-    const deletedAdmin = await Admin.findByIdAndDelete(id);
+    const deletedAdmin = await Admin.findByIdAndDelete(cleanId);
     if (!deletedAdmin)
       return res.status(404).json({ message: "Admin not found" });
 

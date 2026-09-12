@@ -34,6 +34,7 @@ export const protectRoute = async (req, res, next) => {
     }
 
     req.admin = admin;
+    req.user = admin;
     next();
   } catch (error) {
     console.log('❌ ProtectRoute Error:', error.message);

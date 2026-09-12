@@ -25,7 +25,8 @@ export default function AdminLogin() {
       setLoading(true);
 
       // ✅ Send login request to backend
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/login`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+      const res = await fetch(`${apiUrl}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -34,7 +35,7 @@ export default function AdminLogin() {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
 
       if (res.ok && data.success) {
         // ✅ Save token & admin info

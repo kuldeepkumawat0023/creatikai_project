@@ -571,7 +571,7 @@ function Ai_Chatbot() {
             <SwiperSlide>
               <div className="bg-sky-100 rounded-lg shadow-md p-6 flex flex-col items-start text-start hover:scale-105 duration-300 group overflow-hidden">
                 <FaQuoteRight className="text-4xl md:text-[90px]  p-2 md:p-4 rounded-full text-blue-500 mb-4 group-hover:text-blue-700 transition-colors duration-300" />
-                
+
                 <p className="text-gray-400 p-3 text-[22px]">
                   AI unlocks endless possibilities by enhancing efficiency and innovation. It transforms industries and daily life with smart, automated solutions.
                 </p>
@@ -588,7 +588,7 @@ function Ai_Chatbot() {
               <div className="bg-sky-100 rounded-lg shadow-md p-6 flex flex-col items-start text-start hover:scale-105 duration-300 group overflow-hidden">
                 <FaQuoteRight className="text-4xl md:text-[90px]  p-2 md:p-4 rounded-full text-blue-500 mb-4 group-hover:text-blue-700 transition-colors duration-300" />
 
-      
+
 
                 {/* Description */}
                 <p className="text-gray-400 p-3 text-[22px]">
@@ -615,7 +615,7 @@ function Ai_Chatbot() {
             <SwiperSlide>
               <div className="bg-sky-100 rounded-lg shadow-md p-6 flex flex-col items-start text-start hover:scale-105 duration-300 group overflow-hidden">
                 <FaQuoteRight className="text-4xl md:text-[90px]  p-2 md:p-4 rounded-full text-blue-500 mb-4 group-hover:text-blue-700 transition-colors duration-300" />
-               
+
                 <p className="text-gray-400 p-3 text-[22px]">
                   Enjoy free updates and support, ensuring your system stays current and problem-free. We're here  help whenever you need us.
                 </p>
@@ -631,14 +631,11 @@ function Ai_Chatbot() {
               </div>
             </SwiperSlide>
 
-           
+
           </Swiper>
         </div>
 
       </section>
-      kuldeepkumawat2383_db_user
-      XgJ2n0Gu14UOEA0I
-      mongodb+srv://kuldeepkumawat2383_db_user:XgJ2n0Gu14UOEA0I@cluster0.9ndbyyd.mongodb.net/?appName=Cluster0
 
 
 

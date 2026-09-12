@@ -102,7 +102,8 @@ export default function Header() {
     if (!confirmed) return;
 
     try {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/logout`, {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+        await fetch(`${apiUrl}/logout`, {
             method: "POST",
             credentials: "include",
         });
